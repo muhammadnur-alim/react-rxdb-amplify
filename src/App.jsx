@@ -165,7 +165,7 @@ function App() {
         checkpoint: eventData.checkpoint
       });
     };
-
+    eventSource.onerror = () => myPullStream$.next('RESYNC');
     replicateRxCollection({
       collection: collection.todos,
       push: {
