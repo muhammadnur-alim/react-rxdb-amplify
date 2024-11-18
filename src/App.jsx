@@ -36,10 +36,10 @@ function App() {
   const [data, setData] = useState([]);
   const [formState, setFormState] = useState(initialState);
   const [formupdate, setFormUpdate] = useState(initialState);
-  const [myPullStream] = useState(new Subject());
+  const [myPullStream] = useState(() => new Subject());
+  const [token, setToken] = useState(null);
 
   const { db, isLeader } = initDatabase();
-  console.log(isLeader);
 
   function setInput(key, value) {
     setFormState({ ...formState, [key]: value });
@@ -116,9 +116,7 @@ function App() {
   const createEventSource = () => {
     const tokenJwt = JSON.parse(localStorage.getItem("token"));
     const eventSource = new EventSourcePolyfill(urlDev.stream, {
-      headers: {
-        Authorization: tokenJwt.jwt,
-      },
+      headers: { Authorization: tokenJwt.jwt },
     });
 
     eventSource.addEventListener("message", (event) => {
@@ -132,10 +130,11 @@ function App() {
     eventSource.addEventListener("error", () => myPullStream.next("RESYNC"));
   };
 
-  const replication = () => {
+  const replication = async () => {
     if (!db) return;
+    const tokenJwt = JSON.parse(localStorage.getItem("token"));
 
-    replicateRxCollection({
+    const replicateState = await replicateRxCollection({
       collection: db.todos,
       push: {
         async handler(body) {
@@ -144,7 +143,7 @@ function App() {
             headers: {
               Accept: "application/json",
               "Content-Type": "application/json",
-              Authorization: localStorage.getItem("token"),
+              Authorization: tokenJwt.jwt,
             },
             body: JSON.stringify(body),
           });
@@ -157,7 +156,7 @@ function App() {
         async handler(lastCheckpoint, batchSize) {
           const response = await fetch(urlDev.pull, {
             headers: {
-              Authorization: localStorage.getItem("token"),
+              Authorization: tokenJwt.jwt,
             },
           });
           const data = await response.json();
@@ -169,6 +168,15 @@ function App() {
         stream$: myPullStream.asObservable(),
       },
     });
+
+    // emits each document that was received from the remote
+    replicateState.received$.subscribe((doc) => console.dir(doc));
+
+    // emits each document that was send to the remote
+    replicateState.sent$.subscribe((doc) => console.dir(doc));
+
+    // emits all errors that happen when running the push- & pull-handlers.
+    replicateState.error$.subscribe((error) => console.dir(error));
   };
 
   const getReplica = async () => {
@@ -178,10 +186,12 @@ function App() {
   useEffect(() => {
     subscribe();
     getReplica();
-  }, [db]);
+  }, [db, token]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
+  const handleLogout = async () => {
+    await db.todos.cleanup(100);
+    setToken(null);
+    setData([]);
   };
 
   const handleLogin = async (user) => {
@@ -202,6 +212,26 @@ function App() {
     localStorage.setItem("token", dataResponse);
     createEventSource();
   };
+
+  const handleCleanUp = async () => {
+    console.log("cleaning up data-------");
+    await db.todos.cleanup();
+  };
+
+  // Can only be use for server side
+  // const handleBackupData = async () => {
+  //   console.log("Backup data------");
+  //   const backupOptions = {
+  //     // if false, a one-time backup will be written
+  //     live: false,
+  //     // the folder where the backup will be stored
+  //     directory: "/backup/",
+  //     // if true, attachments will also be saved
+  //     attachments: true,
+  //   };
+  //   const backupState = db.backup(backupOptions);
+  //   await backupState.awaitInitialBackup();
+  // };
 
   useEffect(() => {
     const defaultIconUrl = "/vite.svg";
@@ -241,6 +271,10 @@ function App() {
         </span>
         <span>
           <button onClick={handleLogout}>Logout</button>
+        </span>
+        <br />
+        <span>
+          <button onClick={() => handleCleanUp()}>Clean up!</button>
         </span>
       </div>
       <div>
