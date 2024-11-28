@@ -8,7 +8,8 @@ import { RxDBDevModePlugin } from "rxdb/plugins/dev-mode";
 import { RxDBCleanupPlugin } from "rxdb/plugins/cleanup";
 import { RxDBBackupPlugin } from "rxdb/plugins/backup";
 import { wrappedKeyEncryptionCryptoJsStorage } from "rxdb/plugins/encryption-crypto-js";
-
+import { RxDBLocalDocumentsPlugin } from "rxdb/plugins/local-documents";
+addRxPlugin(RxDBLocalDocumentsPlugin);
 addRxPlugin(RxDBBackupPlugin);
 
 addRxPlugin(RxDBDevModePlugin);
@@ -57,6 +58,7 @@ function useInitDatabase() {
       storage: encryptedDexieStorage,
       password: "sudoLetMeIn",
       ignoreDuplicate: true,
+      localDocuments: true,
       cleanupPolicy: {
         /**
          * The minimum time in milliseconds for how long
@@ -100,6 +102,7 @@ function useInitDatabase() {
     await connectDb.addCollections({
       todos: {
         schema: todoSchema,
+        localDocuments: true,
       },
     });
 
