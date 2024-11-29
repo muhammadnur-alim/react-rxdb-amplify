@@ -27,9 +27,9 @@ const urlSort = {
 };
 
 const urlGraphql = {
-  url: "https://kd3k5mi6wzek7apeddwv2lxvdi.appsync-api.us-west-2.amazonaws.com/graphql",
-  wss: "wss://kd3k5mi6wzek7apeddwv2lxvdi.appsync-realtime-api.us-west-2.amazonaws.com/graphql",
-  token: "da2-ujpgg6dezra6vaeyyhubk5gd2e",
+  url: "https://cqsfixpczfdyzblgvmdjctaguq.appsync-api.us-west-2.amazonaws.com/graphql",
+  wss: "wss://cqsfixpczfdyzblgvmdjctaguq.appsync-realtime-api.us-west-2.amazonaws.com/graphql",
+  token: "da2-pimvzxbgmbdo5ddqooc3p7veqe",
 };
 // user data
 const user = [
