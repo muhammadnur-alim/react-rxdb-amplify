@@ -27,9 +27,9 @@ const urlSort = {
 };
 
 const urlGraphql = {
-  url: "https://cqsfixpczfdyzblgvmdjctaguq.appsync-api.us-west-2.amazonaws.com/graphql",
-  wss: "wss://cqsfixpczfdyzblgvmdjctaguq.appsync-realtime-api.us-west-2.amazonaws.com/graphql",
-  token: "da2-pimvzxbgmbdo5ddqooc3p7veqe",
+  url: "https://yt3gywmxjfgqnnjlshqib2wzme.appsync-api.us-west-2.amazonaws.com/graphql",
+  wss: "wss://yt3gywmxjfgqnnjlshqib2wzme.appsync-realtime-api.us-west-2.amazonaws.com/graphql",
+  token: "da2-odwovssnozdw3b3vyyshweqjqi",
 };
 // user data
 const user = [
@@ -153,10 +153,21 @@ pullTodo{
 
     const query = `mutation PushTodo($writeRows: [TodoInputPushRow!]!) {
       pushTodo(rows: $writeRows) {
-        id
-        name
-        done
-        timestamp
+        conflicts {
+          id
+          name
+          done
+          timestamp
+        }
+        conflictMessage
+        changeAction
+        changes {
+            deleted
+            done
+            id
+            name
+            timestamp
+          }
       }
     }`;
 
@@ -205,6 +216,12 @@ pullTodo{
       },
       push: {
         queryBuilder: pushMutationBuilder,
+        responseModifier: async function (plainResponse) {
+          /**
+           * In this example we aggregate the conflicting documents from a response object
+           */
+          return plainResponse.conflicts;
+        },
       },
       headers: {
         "x-api-key": urlGraphql.token,
