@@ -58,7 +58,6 @@ function useInitDatabase() {
       storage: encryptedDexieStorage,
       password: "sudoLetMeIn",
       ignoreDuplicate: true,
-      localDocuments: true,
       cleanupPolicy: {
         /**
          * The minimum time in milliseconds for how long

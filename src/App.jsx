@@ -4,6 +4,7 @@ import { replicateGraphQL } from "rxdb/plugins/replication-graphql";
 import { Subject } from "rxjs";
 import initDatabase from "./hooks/initDatabase";
 import { EventSourcePolyfill } from "event-source-polyfill";
+import Modal from "./Modal";
 
 const initialState = {
   name: "",
@@ -26,10 +27,17 @@ const urlSort = {
   login: "https://sort.my.id/login",
 };
 
+// const urlGraphql = {
+//   url: "https://yt3gywmxjfgqnnjlshqib2wzme.appsync-api.us-west-2.amazonaws.com/graphql",
+//   wss: "wss://yt3gywmxjfgqnnjlshqib2wzme.appsync-realtime-api.us-west-2.amazonaws.com/graphql",
+//   token: "da2-odwovssnozdw3b3vyyshweqjqi",
+// };
+
 const urlGraphql = {
-  url: "https://yt3gywmxjfgqnnjlshqib2wzme.appsync-api.us-west-2.amazonaws.com/graphql",
-  wss: "wss://yt3gywmxjfgqnnjlshqib2wzme.appsync-realtime-api.us-west-2.amazonaws.com/graphql",
-  token: "da2-odwovssnozdw3b3vyyshweqjqi",
+  url: "https://juih7widbnehdgesqg3phhbffq.appsync-api.eu-central-1.amazonaws.com/graphql",
+  wss: "wss://juih7widbnehdgesqg3phhbffq.appsync-realtime-api.eu-central-1.amazonaws.com/graphql",
+  token: "da2-a2nwvpbs6za2xmnzdqvrfmqwfq",
+  jwt: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7Il9pZCI6IjY1ZDZiYTg4ZGMzM2MyOTFmNWY5YzU3YiIsImxpY2Vuc2UiOiI2NWQ2YmE4YWRjMzNjMjkxZjVmOWM3MGUiLCJuYW1lIjoiZmFuZGkifSwiaWF0IjoxNzMyODU0NTAzLCJleHAiOjE3NjM5NTg1MDN9.BRp9va4zrIl1QxlWCH4iVSkFF19fMFD_yDjcIcjDZoo",
 };
 // user data
 const user = [
@@ -45,7 +53,8 @@ function App() {
   const [data, setData] = useState([]);
   const [formState, setFormState] = useState(initialState);
   const [formupdate, setFormUpdate] = useState(initialState);
-  const [myPullStream] = useState(() => new Subject());
+  const [isModalOpen, setModalOpen] = useState(false);
+  const [modalContent, setModalContent] = useState("");
 
   const { db, isLeader } = initDatabase();
 
@@ -62,9 +71,6 @@ function App() {
 
     formState.id = (+new Date()).toString();
     await db.todos.insert(formState);
-    await db.todos.insertLocal("foobar", {
-      foo: "bar",
-    });
     setFormState(initialState);
   };
 
@@ -126,7 +132,7 @@ function App() {
 
   const pullQueryBuilder = () => {
     const query = `query PullTodos {
-pullTodo{
+    pullTodo(limit: 10) {
     checkpoint {
       updatedAt
       id
@@ -151,6 +157,26 @@ pullTodo{
     // Ensure rows is always an array
     const rowsArray = Array.isArray(rows) ? rows : [rows];
 
+    // const query = `mutation PushTodo($writeRows: [TodoInputPushRow!]!) {
+    //   pushTodo(rows: $writeRows) {
+    //     conflicts {
+    //       id
+    //       name
+    //       done
+    //       timestamp
+    //     }
+    //     conflictMessage
+    //     changeAction
+    //     changes {
+    //         deleted
+    //         done
+    //         id
+    //         name
+    //         timestamp
+    //       }
+    //   }
+    // }`;
+
     const query = `mutation PushTodo($writeRows: [TodoInputPushRow!]!) {
       pushTodo(rows: $writeRows) {
         conflicts {
@@ -160,8 +186,11 @@ pullTodo{
           timestamp
         }
         conflictMessage
-        changeAction
-        changes {
+        checkpoint {
+            updatedAt
+            id
+          }
+          documents {
             deleted
             done
             id
@@ -224,7 +253,8 @@ pullTodo{
         },
       },
       headers: {
-        "x-api-key": urlGraphql.token,
+        // "x-api-key": urlGraphql.token,
+        Authorization: urlGraphql.jwt,
       },
       pull: {
         queryBuilder: pullQueryBuilder,
@@ -239,13 +269,19 @@ pullTodo{
     });
 
     // emits each document that was received from the remote
-    replicateState.received$.subscribe((doc) => console.dir(doc));
+    replicateState.received$.subscribe((doc) => {
+      setModalContent(`Document sent: ${JSON.stringify(doc)}`);
+      setModalOpen(true);
+    });
 
     // emits each document that was send to the remote
-    replicateState.sent$.subscribe((doc) => console.dir(doc));
+    // replicateState.sent$.subscribe((doc) => {
+    //   setModalContent(`Document sent: ${JSON.stringify(doc)}`);
+    //   setModalOpen(true);
+    // });
 
     // emits all errors that happen when running the push- & pull-handlers.
-    replicateState.error$.subscribe((error) => console.dir(error));
+    // replicateState.error$.subscribe((error) => console.dir(error));
   };
 
   const getReplica = async () => {
@@ -300,6 +336,11 @@ pullTodo{
   //   await backupState.awaitInitialBackup();
   // };
 
+  const handleCloseModal = () => {
+    setModalOpen(false);
+    setModalContent("");
+  };
+
   useEffect(() => {
     const defaultIconUrl = "/vite.svg";
     const leaderIconUrl = "/crownicon.svg";
@@ -326,7 +367,7 @@ pullTodo{
 
   return (
     <>
-      <div>
+      <div onClick={handleCloseModal}>
         {/* <span> */}
         {/*   <button onClick={() => handleLogin(user[0])}>Login-{user[0]}</button> */}
         {/* </span> */}
@@ -353,6 +394,12 @@ pullTodo{
           />
         </a>
       </div>
+
+      <Modal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        content={modalContent}
+      />
 
       {show ? (
         <div>
