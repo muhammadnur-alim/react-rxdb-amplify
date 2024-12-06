@@ -4,6 +4,10 @@ import "./index.css";
 import App from "./App.jsx";
 import { addRxPlugin } from "rxdb";
 import { RxDBDevModePlugin } from "rxdb/plugins/dev-mode";
+import { Amplify } from "aws-amplify";
+import outputs from "../amplify/amplify_outputs.json";
+
+Amplify.configure(outputs);
 
 addRxPlugin(RxDBDevModePlugin);
 

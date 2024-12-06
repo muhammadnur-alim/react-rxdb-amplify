@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { createRxDatabase } from "rxdb";
 import { getRxStorageDexie } from "rxdb/plugins/storage-dexie";
-import { getRxStorageMemory } from "rxdb/plugins/storage-memory";
+// import { getRxStorageMemory } from "rxdb/plugins/storage-memory";
 import { addRxPlugin } from "rxdb";
 import { RxDBLeaderElectionPlugin } from "rxdb/plugins/leader-election";
 import { RxDBDevModePlugin } from "rxdb/plugins/dev-mode";
 import { RxDBCleanupPlugin } from "rxdb/plugins/cleanup";
 import { RxDBBackupPlugin } from "rxdb/plugins/backup";
-import { wrappedKeyEncryptionCryptoJsStorage } from "rxdb/plugins/encryption-crypto-js";
+// import { wrappedKeyEncryptionCryptoJsStorage } from "rxdb/plugins/encryption-crypto-js";
 import { RxDBLocalDocumentsPlugin } from "rxdb/plugins/local-documents";
 addRxPlugin(RxDBLocalDocumentsPlugin);
 addRxPlugin(RxDBBackupPlugin);
@@ -38,7 +38,7 @@ const todoSchema = {
     },
   },
   required: ["id", "name", "done", "timestamp"],
-  encrypted: ["name"],
+  // encrypted: ["name"],
 };
 
 function useInitDatabase() {
@@ -46,16 +46,16 @@ function useInitDatabase() {
   const [isLeader, setIsLeader] = useState(false);
 
   // wrap the normal storage with the encryption plugin
-  const encryptedDexieStorage = wrappedKeyEncryptionCryptoJsStorage({
-    storage: getRxStorageDexie(),
-  });
+  // const encryptedDexieStorage = wrappedKeyEncryptionCryptoJsStorage({
+  //   storage: getRxStorageDexie(),
+  // });
 
   const createDb = async () => {
     const connectDb = await createRxDatabase({
       name: "rxdb-sample",
-      //   storage: getRxStorageMemory(),
-      //storage: getRxStorageDexie(),
-      storage: encryptedDexieStorage,
+      // storage: getRxStorageMemory(),
+      storage: getRxStorageDexie(),
+      // storage: encryptedDexieStorage,
       password: "sudoLetMeIn",
       ignoreDuplicate: true,
       cleanupPolicy: {

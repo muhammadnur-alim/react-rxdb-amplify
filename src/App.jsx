@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-import { replicateGraphQL } from "rxdb/plugins/replication-graphql";
-import { Subject } from "rxjs";
 import initDatabase from "./hooks/initDatabase";
-import { EventSourcePolyfill } from "event-source-polyfill";
 import Modal from "./Modal";
+import { replicateRxCollection } from "rxdb/plugins/replication";
+import { generateClient } from "aws-amplify/data";
+import { Subject } from "rxjs";
 
 const initialState = {
   name: "",
@@ -12,41 +12,7 @@ const initialState = {
   timestamp: +new Date(),
 };
 
-// url server dani
-const urlDani = {
-  pull: "https://ca99-103-81-220-21.ngrok-free.app/pull",
-  push: "https://ca99-103-81-220-21.ngrok-free.app/push",
-  stream: "https://ca99-103-81-220-21.ngrok-free.app/pullStream",
-};
-
-// url data
-const urlSort = {
-  pull: "https://sort.my.id/rxdb/pull",
-  push: "https://sort.my.id/rxdb/push",
-  stream: "https://sort.my.id/rxdb/pull_stream",
-  login: "https://sort.my.id/login",
-};
-
-// const urlGraphql = {
-//   url: "https://yt3gywmxjfgqnnjlshqib2wzme.appsync-api.us-west-2.amazonaws.com/graphql",
-//   wss: "wss://yt3gywmxjfgqnnjlshqib2wzme.appsync-realtime-api.us-west-2.amazonaws.com/graphql",
-//   token: "da2-odwovssnozdw3b3vyyshweqjqi",
-// };
-
-const urlGraphql = {
-  url: "https://juih7widbnehdgesqg3phhbffq.appsync-api.eu-central-1.amazonaws.com/graphql",
-  wss: "wss://juih7widbnehdgesqg3phhbffq.appsync-realtime-api.eu-central-1.amazonaws.com/graphql",
-  token: "da2-a2nwvpbs6za2xmnzdqvrfmqwfq",
-  jwt: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7Il9pZCI6IjY1ZDZiYTg4ZGMzM2MyOTFmNWY5YzU3YiIsImxpY2Vuc2UiOiI2NWQ2YmE4YWRjMzNjMjkxZjVmOWM3MGUiLCJuYW1lIjoiZmFuZGkifSwiaWF0IjoxNzMyODU0NTAzLCJleHAiOjE3NjM5NTg1MDN9.BRp9va4zrIl1QxlWCH4iVSkFF19fMFD_yDjcIcjDZoo",
-};
-// user data
-const user = [
-  "sharkpos.course@gmail.com",
-  "irfanfandi38@gmail.com",
-  "dea.edria@gmail.com",
-];
-
-const urlDev = !urlDani ? urlDani : urlSort;
+const client = generateClient();
 
 function App() {
   const [show, setSHow] = useState(true);
@@ -57,6 +23,30 @@ function App() {
   const [modalContent, setModalContent] = useState("");
 
   const { db, isLeader } = initDatabase();
+
+  /**
+   * Fetches data from the specified model and optionally processes it with a callback.
+   *
+   * @param {string} model - The name of the model to fetch data from. Should match a key in `client.models`.
+   * @param {Function} [callback] - Optional callback function to process the fetched data.
+   * @returns {Promise<void>} A promise that resolves when the fetch operation is complete.
+   */
+  const fetchTodos = async () => {
+    try {
+      const { data, errors } = await client.models.Todos.list();
+      if (errors) {
+        console.error(`Error fetching:`, errors);
+      } else {
+        return data;
+      }
+    } catch (error) {
+      console.error(`Unexpected error fetching:`, error);
+    }
+  };
+
+  useEffect(() => {
+    fetchTodos();
+  }, []);
 
   function setInput(key, value) {
     setFormState({ ...formState, [key]: value });
@@ -130,142 +120,41 @@ function App() {
     console.log(name);
   };
 
-  const pullQueryBuilder = () => {
-    const query = `query PullTodos {
-    pullTodo(limit: 10) {
-    checkpoint {
-      updatedAt
-      id
-    }
-    documents {
-      deleted
-      done
-      id
-      name
-      timestamp
-    }
-  }
-}`;
-    return {
-      query,
-      operationName: "PullTodos",
-      variables: null,
-    };
-  };
-
-  const pushMutationBuilder = (rows) => {
-    // Ensure rows is always an array
-    const rowsArray = Array.isArray(rows) ? rows : [rows];
-
-    // const query = `mutation PushTodo($writeRows: [TodoInputPushRow!]!) {
-    //   pushTodo(rows: $writeRows) {
-    //     conflicts {
-    //       id
-    //       name
-    //       done
-    //       timestamp
-    //     }
-    //     conflictMessage
-    //     changeAction
-    //     changes {
-    //         deleted
-    //         done
-    //         id
-    //         name
-    //         timestamp
-    //       }
-    //   }
-    // }`;
-
-    const query = `mutation PushTodo($writeRows: [TodoInputPushRow!]!) {
-      pushTodo(rows: $writeRows) {
-        conflicts {
-          id
-          name
-          done
-          timestamp
-        }
-        conflictMessage
-        checkpoint {
-            updatedAt
-            id
-          }
-          documents {
-            deleted
-            done
-            id
-            name
-            timestamp
-          }
-      }
-    }`;
-
-    const variables = {
-      writeRows: rowsArray, // Use the wrapped array
-    };
-
-    return {
-      query,
-      operationName: "PushTodo",
-      variables,
-    };
-  };
-
-  const streamTodoBuilder = () => {
-    const query = `subscription StreamTodo {
-    streamTodo {
-    checkpoint {
-      id
-      updatedAt
-    }
-    documents {
-      deleted
-      done
-      id
-      name
-      timestamp
-    }
-  }    
-  }`;
-    return {
-      query,
-      operationName: "StreamTodo",
-      variables: null,
-    };
-  };
+  // const createTodo = async () => {
+  //   await client.models.Todos.create({
+  //     name: `alim_${new Date().toISOString()}`, // Combining 'lim' with the current ISO string
+  //     done: false, // Boolean field to indicate completion
+  //     timestamp: new Date().toISOString(), // ISO 8601 date-time format
+  //     deleted: false, // Boolean field to indicate soft deletion
+  //   });
+  // };
 
   const replication = async () => {
     if (!db) return;
 
-    const replicateState = await replicateGraphQL({
+    const replicateState = replicateRxCollection({
       collection: db.todos,
-      url: {
-        http: urlGraphql.url,
-        ws: urlGraphql.wss,
-      },
+      replicationIdentifier: "amplify-http",
       push: {
-        queryBuilder: pushMutationBuilder,
-        responseModifier: async function (plainResponse) {
-          /**
-           * In this example we aggregate the conflicting documents from a response object
-           */
-          return plainResponse.conflicts;
+        /* add settings from below */
+        async handler(changeRows) {
+          const { data: conflicts } = await client.mutations.pushMutation({
+            changeRows: changeRows,
+          });
+          return conflicts;
         },
-      },
-      headers: {
-        // "x-api-key": urlGraphql.token,
-        Authorization: urlGraphql.jwt,
       },
       pull: {
-        queryBuilder: pullQueryBuilder,
-        streamBuilder: streamTodoBuilder,
-        includeWsHeaders: true,
-        wsOptions: {
-          retryAttempts: 10,
+        /* add settings from below */
+        async handler(checkpointOrNull, batchSize) {
+          const { data } = await client.models.Todos.list();
+          console.log(data, "pulltodos");
+          return {
+            documents: data,
+            checkpoint: data.updatedAt,
+          };
         },
       },
-      deletedField: "deleted",
-      live: true,
     });
 
     // emits each document that was received from the remote
@@ -293,28 +182,28 @@ function App() {
     getReplica();
   }, [db]);
 
-  const handleLogout = async () => {
-    await db.todos.cleanup(100);
-    setData([]);
-  };
+  // const handleLogout = async () => {
+  //   await db.todos.cleanup(100);
+  //   setData([]);
+  // };
 
-  const handleLogin = async (user) => {
-    const body = {
-      username: user,
-    };
-    const response = await fetch(urlDev.login, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+  // const handleLogin = async (user) => {
+  //   const body = {
+  //     username: user,
+  //   };
+  //   const response = await fetch(urlDev.login, {
+  //     method: "POST",
+  //     headers: {
+  //       Accept: "application/json",
+  //       "Content-Type": "application/json",
+  //     },
+  //     body: JSON.stringify(body),
+  //   });
 
-    const { data } = await response.json();
-    const dataResponse = JSON.stringify(data);
-    localStorage.setItem("token", dataResponse);
-  };
+  //   const { data } = await response.json();
+  //   const dataResponse = JSON.stringify(data);
+  //   localStorage.setItem("token", dataResponse);
+  // };
 
   const handleCleanUp = async () => {
     console.log("cleaning up data-------");
